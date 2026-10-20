@@ -1,5 +1,5 @@
-use std::println;
-
+use std::{println, usize};
+use rand::prelude::*;
 
 const START_ADDR: u16 = 0x200;
 
@@ -58,9 +58,10 @@ impl State{
     }
     
     pub fn stack_pop(&mut self)->u16{
-        let temp_sp = self.sp;
         self.sp -=1;
-        self.stack[temp_sp as usize]
+
+        println!("{:?}, {}", self.stack, self.sp);
+        self.stack[self.sp as usize]
     }
 
     fn delay_decr(&mut self){
@@ -78,9 +79,17 @@ impl State{
         }
     }
 
+    pub fn cycle(&mut self){
+        let instr = self.fetch();
+        self.execute(instr);
+
+        self.delay_decr();
+        self.sound_decr();
+    }
+
     fn fetch(&mut self)->u16{
         let instr1 = self.mem[self.pc as usize] as u16;
-        let instr2 = self.mem[self.pc as usize] as u16;
+        let instr2 = self.mem[(self.pc + 1) as usize] as u16;
 
         let instr_ret = (instr1 << 8)|instr2;
         self.pc +=2;
@@ -206,7 +215,100 @@ impl State{
                 let nnn = instr & 0xFFF;
                 self.pc = (self.registers[0] as u16) + nnn;
             },
+
+            (0xC, _, _, _)=>{
+                //Generate a Random Number
+                let reg1 = digit2 as usize;
+                let val: u8 = digit3 as u8;
+                let rand_num = rand::rng().random_range::<u8, _>(..255);
+                self.registers[reg1] = rand_num & val;
+            },
+
+            (0xD, _, _, _)=>{
+                let mut v_x = self.registers[digit2 as usize] & 63;
+                let mut v_y = self.registers[digit3 as usize] & 31;
+
+                let n_rows = digit4;
+
+                self.registers[0xF] = 0;
+
+                for row in (0..n_rows){
+                    let byte_addr = self.idx + row;
+                    let byte_arr = self.mem[byte_addr as usize];
+                    for px in (0..8){
+                        if (byte_arr & (0b10000000 >> px)) != 0{
+                            if self.display[(v_y*64 + v_x) as usize]{
+                                self.display[(v_y*64 + v_x) as usize] = false;
+                                self.registers[0xF] = 1;
+                            }
+                        }
+                        else{
+                                self.display[(v_y*64 + v_x) as usize] = true;
+                            }
+                        
+                        v_x +=1
+                        }
+                    
+                    v_y +=1;
+                    }
+                },
             
+            (0xF, _, 0, 7) => {
+                let x = digit2 as usize;
+                self.registers[x] = self.delay_timer;
+            },
+
+            (0xF, _, 1, 5) => {
+                let x: usize = digit2 as usize;
+                self.delay_timer = self.registers[x];
+            },
+
+            (0xF, _, 1, 8) => {
+                let x: usize = digit2 as usize;
+                self.sound_timer = self.registers[x];
+            },
+
+            (0xF, _, 1, 0xE) => {
+                let x: usize = digit2 as usize;
+                self.idx = self.idx.wrapping_add(self.registers[x] as u16);
+            },
+
+            (0xF, _, 2, 9)=>{
+                let x: usize = digit2 as usize;
+                self.idx = 5*(self.registers[x] as u16);
+            },
+
+            (0xF, _, 3, 3)=>{
+                let x = digit2 as usize;
+                let vx: f32 = self.registers[x] as f32;
+                // Fetch the hundreds digit by dividing by 100 and tossing the decimal
+                let hundreds = (vx / 100.0).floor() as u8;
+                // Fetch the tens digit by dividing by 10, tossing the ones digit and the decimal
+                let tens = ((vx / 10.0) % 10.0).floor() as u8;
+                // Fetch the ones digit by tossing the hundreds and the tens
+                let ones = (vx % 10.0) as u8;
+                self.mem[self.idx as usize] = hundreds;
+                self.mem[(self.idx + 1) as usize] = tens;
+                self.mem[(self.idx + 2) as usize] = ones;
+            },
+
+            (0xF, _, 5, 5)=>{
+                let x = digit2;
+
+                for reg in (0..=x){
+                    self.mem[(self.idx + reg) as usize] = self.registers[reg as usize];
+                }
+            }
+
+            (0xF, _, 6, 5)=>{
+                let x = digit2;
+
+                for reg in (0..=x){
+                    self.registers[reg as usize] = self.mem[(self.idx + reg) as usize];
+                }
+            }
+
+
             (_, _, _, _) => {
                 println!("Unimplemented");
                 return
@@ -216,3 +318,92 @@ impl State{
 
 
 }   
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_state_initialization() {
+        let state = State::new();
+        assert_eq!(state.pc, START_ADDR);
+        assert_eq!(state.sp, 0);
+        assert_eq!(state.idx, 0);
+        // Verify fontset is correctly copied into memory
+        assert_eq!(state.mem[0], 0xF0);
+        assert_eq!(state.mem[4], 0xF0);
+        assert_eq!(state.mem[5], 0x20);
+    }
+
+    #[test]
+    fn test_stack_push_and_pop() {
+        let mut state = State::new();
+        state.stack_push(0x300);
+        state.stack_push(0x400);
+
+        assert_eq!(state.sp, 2);
+        assert_eq!(state.stack_pop(), 0x400);
+        assert_eq!(state.stack_pop(), 0x300);
+        assert_eq!(state.sp, 0);
+    }
+
+    #[test]
+    fn test_register_load_and_add() {
+        let mut state = State::new();
+        
+        // Instruction 0x6123: V1 = 0x23
+        state.execute(0x6123);
+        assert_eq!(state.registers[1], 0x23);
+
+        // Instruction 0x7105: V1 = V1 + 0x05 -> 0x28
+        state.execute(0x7105);
+        assert_eq!(state.registers[1], 0x28);
+    }
+
+    #[test]
+    fn test_alu_add_with_overflow() {
+        let mut state = State::new();
+        state.registers[1] = 0xFF;
+        state.registers[2] = 0x02;
+
+        // Instruction 0x8124: V1 = V1 + V2 (triggers overflow)
+        state.execute(0x8124);
+        assert_eq!(state.registers[1], 0x01);
+        assert_eq!(state.registers[0xF], 1); // Carry flag set
+    }
+
+    #[test]
+    fn test_jump_call_and_return() {
+        let mut state = State::new();
+
+        // Instruction 0x1250: JP 0x250
+        state.execute(0x1250);
+        assert_eq!(state.pc, 0x250);
+
+        // Instruction 0x2300: CALL 0x300
+        state.execute(0x2300);
+        assert_eq!(state.pc, 0x300);
+        assert_eq!(state.sp, 1);
+        assert_eq!(state.stack[0], 0x250);
+
+        // Instruction 0x00EE: RET
+        state.execute(0x00EE);
+        assert_eq!(state.pc, 0x250);
+        assert_eq!(state.sp, 0);
+    }
+
+    #[test]
+    fn test_timers() {
+        let mut state = State::new();
+        state.registers[1] = 42;
+
+        // Instruction 0xF115: delay_timer = V1
+        state.execute(0xF115);
+        assert_eq!(state.delay_timer, 42);
+
+        // Clear V1 and read back delay timer via 0xF107: V1 = delay_timer
+        state.registers[1] = 0;
+        state.execute(0xF107);
+        assert_eq!(state.registers[1], 42);
+    }
+}

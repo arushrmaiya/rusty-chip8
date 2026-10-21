@@ -32,6 +32,7 @@ pub struct State{
     delay_timer: u8,
     sound_timer: u8,
     registers: [u8; 16],
+    keypad: [bool; 16],
     display: [bool; 64*32]
 }
 
@@ -44,7 +45,8 @@ impl State{
              sp: 0,
              delay_timer: 0, 
              sound_timer: 0, 
-             registers: [0; 16], 
+             registers: [0; 16],
+             keypad: [false; 16], 
              display: [false; 64*32],
             };
 
@@ -64,6 +66,35 @@ impl State{
         self.stack[self.sp as usize]
     }
 
+    pub fn get_display(&mut self)->&[bool]{
+        &self.display
+    }
+
+    pub fn keypress(&mut self, idx: usize, pressed: bool) {
+        self.keypad[idx] = pressed;
+    }
+
+    pub fn load_prog(&mut self, data: &[u8]){
+        for (i, &byte) in data.iter().enumerate() {
+            let addr = 0x200 + i;
+            if addr < 4096 {
+                self.mem[0x200 + i] = byte;
+            } else {
+                break;
+            }
+        }
+
+    }
+
+    pub fn cycle(&mut self){
+        let instr = self.fetch();
+        self.execute(instr);
+
+        self.delay_decr();
+        self.sound_decr();
+    }
+
+
     fn delay_decr(&mut self){
         if self.delay_timer > 0{
             self.delay_timer -=1;
@@ -77,14 +108,6 @@ impl State{
             self.sound_timer -=1;
 
         }
-    }
-
-    pub fn cycle(&mut self){
-        let instr = self.fetch();
-        self.execute(instr);
-
-        self.delay_decr();
-        self.sound_decr();
     }
 
     fn fetch(&mut self)->u16{
@@ -157,7 +180,7 @@ impl State{
             },
 
             (3, _, _, _) => {
-                let jump_addr: u16 = self.pc + 4; 
+                let jump_addr: u16 = self.pc + 2; 
                 let target_reg = digit2 as usize;
                 let target_val: u8 = ((digit3 as u8) <<4)|digit4 as u8;
                 if self.registers[target_reg] == target_val{
@@ -167,7 +190,7 @@ impl State{
             },
 
             (4, _, _, _) => {
-                let jump_addr: u16 = self.pc + 4; 
+                let jump_addr: u16 = self.pc + 2; 
                 let target_reg = digit2 as usize;
                 let target_val: u8 = ((digit3 as u8) <<4)|digit4 as u8;
                 if self.registers[target_reg] != target_val{
@@ -252,11 +275,39 @@ impl State{
                     v_y +=1;
                     }
                 },
+            (0xE, _, 9, 0xE) =>{
+                let key = digit2 as usize;
+                if self.keypad[key]{
+                    self.pc += 2;
+                }
+
+            },
+
+            (0xE, _, 0xA, 1) =>{
+                let key = digit2 as usize;
+                if !self.keypad[key]{
+                    self.pc += 2;
+                }
+
+            },
+
             
             (0xF, _, 0, 7) => {
                 let x = digit2 as usize;
                 self.registers[x] = self.delay_timer;
             },
+
+            (0xF, _, 0, 0xA) => {
+                let x = digit2;
+                for i in (0..=16){
+                    if self.keypad[i as usize]{
+                        self.registers[x as usize] = i as u8;
+                        return
+                    }
+                }
+                self.pc -=2;
+            },
+
 
             (0xF, _, 1, 5) => {
                 let x: usize = digit2 as usize;

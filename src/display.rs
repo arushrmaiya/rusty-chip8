@@ -3,11 +3,16 @@ use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
 use std::time::Duration;
 
+const SCREEN_WIDTH:u32 = 64;
+const SCREEN_HEIGHT:u32 = 32;
+const SCALE:u32 = 15;
+
+
 pub fn main_sdl() {
     let sdl_context = sdl3::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
-    let window = video_subsystem.window("rust-sdl3 demo", 64, 32)
+    let window = video_subsystem.window("rust-sdl3 demo", SCREEN_WIDTH*SCALE, SCREEN_HEIGHT*SCALE)
         .position_centered()
         .build()
         .unwrap();
@@ -37,4 +42,20 @@ pub fn main_sdl() {
         canvas.present();
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
+}
+
+pub fn draw_screen(){
+    let sdl_context = sdl3::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
+
+    let window = video_subsystem.window("rust-sdl3 demo", SCREEN_WIDTH*SCALE, SCREEN_HEIGHT*SCALE)
+        .position_centered()
+        .build()
+        .unwrap();
+
+    let mut canvas = window.into_canvas();
+    canvas.clear();
+    canvas.set_draw_color(Color::RGB(0, 64, 255));
+    canvas.present();
+
 }

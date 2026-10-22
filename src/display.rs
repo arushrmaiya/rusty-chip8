@@ -1,18 +1,23 @@
 use sdl3::pixels::Color;
 use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
+use sdl3::render::Canvas;
+use sdl3::video::Window;
 use std::time::Duration;
+use sdl3::rect::Rect;
 
-const SCREEN_WIDTH:u32 = 64;
-const SCREEN_HEIGHT:u32 = 32;
-const SCALE:u32 = 15;
+use crate::display;
+
+const SCREEN_WIDTH:usize = 64;
+const SCREEN_HEIGHT:usize = 32;
+const SCALE:usize = 15;
 
 
 pub fn main_sdl() {
     let sdl_context = sdl3::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
-    let window = video_subsystem.window("rust-sdl3 demo", SCREEN_WIDTH*SCALE, SCREEN_HEIGHT*SCALE)
+    let window = video_subsystem.window("rust-sdl3 demo", (SCREEN_WIDTH*SCALE) as u32, (SCREEN_HEIGHT*SCALE) as u32)
         .position_centered()
         .build()
         .unwrap();
@@ -44,18 +49,21 @@ pub fn main_sdl() {
     }
 }
 
-pub fn draw_screen(){
-    let sdl_context = sdl3::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
-
-    let window = video_subsystem.window("rust-sdl3 demo", SCREEN_WIDTH*SCALE, SCREEN_HEIGHT*SCALE)
-        .position_centered()
-        .build()
-        .unwrap();
-
-    let mut canvas = window.into_canvas();
+pub fn draw_screen(canvas: &mut Canvas<Window>, display: &[bool]){
+    canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
-    canvas.set_draw_color(Color::RGB(0, 64, 255));
-    canvas.present();
 
+    canvas.set_draw_color(Color::RGB(255, 255, 255));
+
+    for (i, px) in display.iter().enumerate(){
+        if *px{
+            let x = (i % SCREEN_WIDTH) as u32;
+            let y = (i / SCREEN_WIDTH) as u32;
+
+            let rect = Rect::new((x * 15) as i32, (y * 15) as i32, 15, 15);
+            canvas.fill_rect(rect).unwrap();
+        }
+    }
+
+    canvas.present();
 }

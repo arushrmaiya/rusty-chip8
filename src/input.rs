@@ -1,6 +1,12 @@
 use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
+use rusty_chip8::State;
 
+pub enum retCodes{
+    Code(usize),
+    Quit,
+    NoneType
+}
 fn key_to_code(key: Keycode) -> Option<usize> {
     match key {
         Keycode::_1 => Some(0x1),
@@ -23,7 +29,7 @@ fn key_to_code(key: Keycode) -> Option<usize> {
         => None,
     }
 }
-pub fn get_key()->Result<usize, ()>{
+pub fn get_key(curr_state: &mut State)->retCodes{
     let sdl_context = sdl3::init().unwrap();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
@@ -31,17 +37,25 @@ pub fn get_key()->Result<usize, ()>{
     for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => {
-                    return Err(())
+                    return retCodes::Quit
                 },
                 Event::KeyDown{keycode: Some(key), ..} => {
-                    println!("{key:?}");
+                    println!("{key:?} Down");
                     if let Some(code) = key_to_code(key){
-                        return Ok(code)
+                        curr_state.keypress(code, true);
+                        return retCodes::Code(code)
                     }
                 },
-                _ => {return Err(())}
+                Event::KeyUp{keycode: Some(key), ..} => {
+                    println!("{key:?} Up");
+                    if let Some(code) = key_to_code(key){
+                        curr_state.keypress(code, false);
+                        return retCodes::Code(code)
+                    }
+                },
+                _ => {return retCodes::NoneType}
             }
         }
     
-    Err(())
+    retCodes::NoneType
 }

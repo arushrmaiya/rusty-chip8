@@ -248,9 +248,10 @@ impl State{
             },
 
             (0xD, _, _, _)=>{
-                let mut v_x = self.registers[digit2 as usize] & 63;
-                let mut v_y = self.registers[digit3 as usize] & 31;
-
+                // println!("Draw Screen");
+                let mut v_x = (self.registers[digit2 as usize] & 63) as u16;
+                let mut v_y = (self.registers[digit3 as usize] & 31) as u16;
+                // println!("{}, {}", v_y, v_x);
                 let n_rows = digit4;
 
                 self.registers[0xF] = 0;

@@ -5,7 +5,7 @@ mod input;
 
 use display::{draw_screen, main_sdl};
 use input::get_key;
-use sdl3::event::Event;
+use sdl3::event::Event::{self, Quit};
 
 use sdl3::pixels::Color;
 // use sdl3::event::Event;
@@ -17,8 +17,12 @@ const SCALE:u32 = 15;
 
 use rusty_chip8::State;
 
+use std::fs::File;
+use std::io::Read;
+
+use crate::input::retCodes;
+
 fn main() {
-    // println!("Hello, world!");
     let sdl_context = sdl3::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -32,13 +36,25 @@ fn main() {
     canvas.set_draw_color(Color::RGB(0, 64, 255));
     canvas.present();
 
-    let curr_state = State::new();
+    let mut curr_state = State::new();
 
+    let mut rom = File::open("roms/IBMLogo.ch8").expect("Should have been able to read the file");;
+    let mut buffer: Vec<u8> = Vec::new();
+    rom.read_to_end(&mut buffer).unwrap();
 
-    loop{
-        let ok = get_key();
+    curr_state.load_prog(&buffer);
+
+    'gameloop: loop{
+        let retCode:retCodes = get_key(&mut curr_state);
         // draw_screen();
+        // let code: i32 = 0x0;
+        match retCode{
+            retCodes::Quit=>break 'gameloop,
+            _=>()
+        }
 
+        curr_state.cycle();
+        draw_screen(&mut canvas, curr_state.get_display());
     }
 
 }

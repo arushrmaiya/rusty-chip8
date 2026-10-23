@@ -154,7 +154,7 @@ impl State{
         }
     }
 
-    fn execute(&mut self, instr: u16){
+fn execute(&mut self, instr: u16){
 
         let digit1 = (instr & 0xF000) >> 12;
         let digit2 = (instr & 0x0F00) >> 8;
@@ -162,19 +162,26 @@ impl State{
         let digit4 = instr & 0x000F;
 
         match (digit1, digit2, digit3, digit4){
-            (0, 0, 0xE, 0) => self.display = [false; 64*32], //Clear Display
-            (0, 0, 0xE, 0xE) =>{ //Pop and ret
+            (0, 0, 0xE, 0) => {
+                println!("CLS (Clear Display)");
+                self.display = [false; 64*32];
+            },
+            
+            (0, 0, 0xE, 0xE) => { 
+                println!("RET (Return from subroutine)");
                 let ret_addr = self.stack_pop();
                 self.pc = ret_addr;
             },
 
             (1, _, _, _) => {
-                let jump_addr: u16 = (digit2<<8)|(digit3<<4)|digit4; //Jump
+                let jump_addr: u16 = (digit2<<8)|(digit3<<4)|digit4;
+                println!("JP {:#06X}", jump_addr);
                 self.pc = jump_addr;
             },
 
             (2, _, _, _) => {
-                let jump_addr: u16 = (digit2<<8)|(digit3<<4)|digit4; //Call
+                let jump_addr: u16 = (digit2<<8)|(digit3<<4)|digit4;
+                println!("CALL {:#06X}", jump_addr);
                 self.stack_push(self.pc);
                 self.pc = jump_addr;
             },
@@ -182,20 +189,20 @@ impl State{
             (3, _, _, _) => {
                 let jump_addr: u16 = self.pc + 2; 
                 let target_reg = digit2 as usize;
-                let target_val: u8 = ((digit3 as u8) <<4)|digit4 as u8;
-                if self.registers[target_reg] == target_val{
+                let target_val: u8 = ((digit3 as u8) << 4) | digit4 as u8;
+                println!("SE V{:X}, {:#04X}", target_reg, target_val);
+                if self.registers[target_reg] == target_val {
                     self.pc = jump_addr;
-
                 }
             },
 
             (4, _, _, _) => {
                 let jump_addr: u16 = self.pc + 2; 
                 let target_reg = digit2 as usize;
-                let target_val: u8 = ((digit3 as u8) <<4)|digit4 as u8;
-                if self.registers[target_reg] != target_val{
+                let target_val: u8 = ((digit3 as u8) << 4) | digit4 as u8;
+                println!("SNE V{:X}, {:#04X}", target_reg, target_val);
+                if self.registers[target_reg] != target_val {
                     self.pc = jump_addr;
-
                 }
             },
 
@@ -203,171 +210,186 @@ impl State{
                 let jump_addr: u16 = self.pc + 4; 
                 let reg1 = digit2 as usize;
                 let reg2: usize = digit3 as usize;
-                if self.registers[reg1] == self.registers[reg2]{
+                println!("SE V{:X}, V{:X}", reg1, reg2);
+                if self.registers[reg1] == self.registers[reg2] {
                     self.pc = jump_addr;
                 }
             },
 
-            (6, _, _, _)=>{
-                let target_reg = digit2 as usize; //R1 <- Val
-                let target_val: u8 = ((digit3 as u8) <<4)|digit4 as u8;
+            (6, _, _, _) => {
+                let target_reg = digit2 as usize;
+                let target_val: u8 = ((digit3 as u8) << 4) | digit4 as u8;
+                println!("LD V{:X}, {:#04X}", target_reg, target_val);
                 self.registers[target_reg] = target_val;
             },
 
-            (7, _, _, _)=>{
-                let target_reg = digit2 as usize; // R1 <- R1 + Val
-                let target_val: u8 = ((digit3 as u8) <<4)|digit4 as u8;
+            (7, _, _, _) => {
+                let target_reg = digit2 as usize;
+                let target_val: u8 = ((digit3 as u8) << 4) | digit4 as u8;
+                println!("ADD V{:X}, {:#04X}", target_reg, target_val);
                 self.registers[target_reg] += target_val;
             },
 
-            (8, _, _, _)=>self.reg_alu(digit2 as usize, digit3 as usize, digit4 as u8),
-        
+            (8, _, _, _) => {
+                println!("ALU Instruction 8{:X}{:X}{:X}", digit2, digit3, digit4);
+                self.reg_alu(digit2 as usize, digit3 as usize, digit4 as u8);
+            },
 
             (9, _, _, _) => {
                 let jump_addr: u16 = self.pc + 4; 
                 let reg1 = digit2 as usize;
                 let reg2: usize = digit3 as usize;
-                if self.registers[reg1] == self.registers[reg2]{
+                println!("SNE V{:X}, V{:X}", reg1, reg2);
+                if self.registers[reg1] == self.registers[reg2] {
                     self.pc = jump_addr;
                 }
             },
 
-            (0xA, _, _, _) => self.idx = (digit2<<8)|(digit3<<4)|digit4, // I <- Val
+            (0xA, _, _, _) => {
+                let val = (digit2 << 8) | (digit3 << 4) | digit4;
+                println!("LD I, {:#06X}", val);
+                self.idx = val;
+            },
 
             (0xB, _, _, _) => {
                 let nnn = instr & 0xFFF;
+                println!("JP V0, {:#06X}", nnn);
                 self.pc = (self.registers[0] as u16) + nnn;
             },
 
-            (0xC, _, _, _)=>{
-                //Generate a Random Number
+            (0xC, _, _, _) => {
                 let reg1 = digit2 as usize;
                 let val: u8 = digit3 as u8;
+                println!("RND V{:X}, {:#04X}", reg1, val);
                 let rand_num = rand::rng().random_range::<u8, _>(..255);
                 self.registers[reg1] = rand_num & val;
             },
 
-            (0xD, _, _, _)=>{
-                // println!("Draw Screen");
-                let mut v_x = (self.registers[digit2 as usize] & 63) as u16;
+            (0xD, _, _, _) => {
+                println!("DRW V{:X}, V{:X}, {:#X}", digit2, digit3, digit4);
                 let mut v_y = (self.registers[digit3 as usize] & 31) as u16;
-                // println!("{}, {}", v_y, v_x);
                 let n_rows = digit4;
+
+
 
                 self.registers[0xF] = 0;
 
-                for row in (0..n_rows){
+                for row in 0..n_rows {
                     let byte_addr = self.idx + row;
                     let byte_arr = self.mem[byte_addr as usize];
-                    for px in (0..8){
-                        if (byte_arr & (0b10000000 >> px)) != 0{
-                            if self.display[(v_y*64 + v_x) as usize]{
-                                self.display[(v_y*64 + v_x) as usize] = false;
+                    let mut v_x: u16 = (self.registers[digit2 as usize] & 63) as u16;
+
+                    for px in 0..8 {
+                        println!("Draw at {v_x}, {v_y}");
+
+                        if (byte_arr & (0b10000000 >> px)) != 0 {
+                            if self.display[(v_y * 64 + v_x) as usize] {
+                                self.display[(v_y * 64 + v_x) as usize] = false;
                                 self.registers[0xF] = 1;
                             }
-                        }
-                        else{
-                                self.display[(v_y*64 + v_x) as usize] = true;
+                            else 
+                            {
+                            self.display[(v_y * 64 + v_x) as usize] = true;
                             }
-                        
-                        v_x +=1
-                        }
-                    
-                    v_y +=1;
+                        } 
+                        v_x = (v_x + 1) & 63;
                     }
-                },
-            (0xE, _, 9, 0xE) =>{
-                let key = digit2 as usize;
-                if self.keypad[key]{
-                    self.pc += 2;
+                    v_y = (v_y + 1) & 31;
                 }
-
             },
 
-            (0xE, _, 0xA, 1) =>{
+            (0xE, _, 9, 0xE) => {
                 let key = digit2 as usize;
-                if !self.keypad[key]{
+                println!("SKP V{:X}", key);
+                if self.keypad[key] {
                     self.pc += 2;
                 }
-
             },
 
+            (0xE, _, 0xA, 1) => {
+                let key = digit2 as usize;
+                println!("SKNP V{:X}", key);
+                if !self.keypad[key] {
+                    self.pc += 2;
+                }
+            },
             
             (0xF, _, 0, 7) => {
                 let x = digit2 as usize;
+                println!("LD V{:X}, DT", x);
                 self.registers[x] = self.delay_timer;
             },
 
             (0xF, _, 0, 0xA) => {
                 let x = digit2;
-                for i in (0..=16){
-                    if self.keypad[i as usize]{
+                println!("LD V{:X}, K", x);
+                for i in 0..=16 {
+                    if self.keypad[i as usize] {
                         self.registers[x as usize] = i as u8;
-                        return
+                        return;
                     }
                 }
-                self.pc -=2;
+                self.pc -= 2;
             },
-
 
             (0xF, _, 1, 5) => {
                 let x: usize = digit2 as usize;
+                println!("LD DT, V{:X}", x);
                 self.delay_timer = self.registers[x];
             },
 
             (0xF, _, 1, 8) => {
                 let x: usize = digit2 as usize;
+                println!("LD ST, V{:X}", x);
                 self.sound_timer = self.registers[x];
             },
 
             (0xF, _, 1, 0xE) => {
                 let x: usize = digit2 as usize;
+                println!("ADD I, V{:X}", x);
                 self.idx = self.idx.wrapping_add(self.registers[x] as u16);
             },
 
-            (0xF, _, 2, 9)=>{
+            (0xF, _, 2, 9) => {
                 let x: usize = digit2 as usize;
-                self.idx = 5*(self.registers[x] as u16);
+                println!("LD F, V{:X}", x);
+                self.idx = 5 * (self.registers[x] as u16);
             },
 
-            (0xF, _, 3, 3)=>{
+            (0xF, _, 3, 3) => {
                 let x = digit2 as usize;
+                println!("LD B, V{:X}", x);
                 let vx: f32 = self.registers[x] as f32;
-                // Fetch the hundreds digit by dividing by 100 and tossing the decimal
                 let hundreds = (vx / 100.0).floor() as u8;
-                // Fetch the tens digit by dividing by 10, tossing the ones digit and the decimal
                 let tens = ((vx / 10.0) % 10.0).floor() as u8;
-                // Fetch the ones digit by tossing the hundreds and the tens
                 let ones = (vx % 10.0) as u8;
                 self.mem[self.idx as usize] = hundreds;
                 self.mem[(self.idx + 1) as usize] = tens;
                 self.mem[(self.idx + 2) as usize] = ones;
             },
 
-            (0xF, _, 5, 5)=>{
+            (0xF, _, 5, 5) => {
                 let x = digit2;
-
-                for reg in (0..=x){
+                println!("LD [I], V{:X}", x);
+                for reg in 0..=x {
                     self.mem[(self.idx + reg) as usize] = self.registers[reg as usize];
                 }
-            }
+            },
 
-            (0xF, _, 6, 5)=>{
+            (0xF, _, 6, 5) => {
                 let x = digit2;
-
-                for reg in (0..=x){
+                println!("LD V{:X}, [I]", x);
+                for reg in 0..=x {
                     self.registers[reg as usize] = self.mem[(self.idx + reg) as usize];
                 }
-            }
-
+            },
 
             (_, _, _, _) => {
-                println!("Unimplemented");
-                return
+                println!("Unimplemented instruction: {:#06X}", instr);
+                return;
             }
         }
     }
-
 
 }   
 

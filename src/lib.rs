@@ -231,7 +231,7 @@ fn execute(&mut self, instr: u16){
                 let target_reg = digit2 as usize;
                 let target_val: u8 = ((digit3 as u8) << 4) | digit4 as u8;
                 println!("ADD V{:X}, {:#04X}", target_reg, target_val);
-                self.registers[target_reg] += target_val;
+                self.registers[target_reg] = self.registers[target_reg].wrapping_add(target_val);
             },
 
             (8, _, _, _) => {

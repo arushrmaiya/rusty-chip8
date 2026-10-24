@@ -132,7 +132,7 @@ impl State{
             },
             5 => {
                 let (result, of) = self.registers[reg1].overflowing_sub(self.registers[reg2]);
-                self.registers[0xF] = if of {1} else {0};
+                self.registers[0xF] = if of {0} else {1};
                 self.registers[reg1] = result;
             },
             6 => {
@@ -142,7 +142,7 @@ impl State{
             },
             7 => {
                 let (result, of) = self.registers[reg2].overflowing_sub(self.registers[reg1]);
-                self.registers[0xF] = if of {1} else {0};
+                self.registers[0xF] = if of {0} else {1};
                 self.registers[reg1] = result;
             },
             0xE => {
@@ -240,7 +240,7 @@ fn execute(&mut self, instr: u16){
                 let reg1 = digit2 as usize;
                 let reg2: usize = digit3 as usize;
                 println!("SNE V{:X}, V{:X}", reg1, reg2);
-                if self.registers[reg1] == self.registers[reg2] {
+                if self.registers[reg1] != self.registers[reg2] {
                     self.pc = jump_addr;
                 }
             },
@@ -269,8 +269,6 @@ fn execute(&mut self, instr: u16){
                 println!("DRW V{:X}, V{:X}, {:#X}", digit2, digit3, digit4);
                 let mut v_y = (self.registers[digit3 as usize] & 31) as u16;
                 let n_rows = digit4;
-
-
 
                 self.registers[0xF] = 0;
 
@@ -310,7 +308,7 @@ fn execute(&mut self, instr: u16){
             (0xE, _, 0xA, 1) => {
                 let key = digit2 as usize;
                 println!("SKNP V{:X}", key);
-                if !self.keypad[key] {
+                if !self.keypad[self.registers[key] as usize] {
                     self.pc += 2;
                 }
             },
@@ -324,7 +322,7 @@ fn execute(&mut self, instr: u16){
             (0xF, _, 0, 0xA) => {
                 let x = digit2;
                 println!("LD V{:X}, K", x);
-                for i in 0..=16 {
+                for i in 0..16 {
                     if self.keypad[i as usize] {
                         self.registers[x as usize] = i as u8;
                         return;

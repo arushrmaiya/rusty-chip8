@@ -90,8 +90,12 @@ impl State{
         let instr = self.fetch();
         self.execute(instr);
 
+    }
+
+    pub fn tick_timers(&mut self){
         self.delay_decr();
         self.sound_decr();
+
     }
 
 
@@ -259,9 +263,9 @@ fn execute(&mut self, instr: u16){
 
             (0xC, _, _, _) => {
                 let reg1 = digit2 as usize;
-                let val: u8 = digit3 as u8;
+                let val: u8 = ((digit3 as u8) << 4) | (digit4 as u8);;
                 println!("RND V{:X}, {:#04X}", reg1, val);
-                let rand_num = rand::rng().random_range::<u8, _>(..255);
+                let rand_num = rand::rng().random_range::<u8, _>(..=255);
                 self.registers[reg1] = rand_num & val;
             },
 

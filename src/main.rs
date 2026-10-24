@@ -56,8 +56,14 @@ fn main() {
             _=>()
         }
 
-        curr_state.cycle();
+        for _ in 0..10{
+            curr_state.cycle();
+        }
+        
         draw_screen(&mut canvas, curr_state.get_display());
+        curr_state.tick_timers();
+
+        thread::sleep(Duration::from_secs_f64(1.0 / 60.0))
     }
 
 }

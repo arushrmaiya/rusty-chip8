@@ -1,4 +1,4 @@
-use std::thread;
+use std::{thread, env};
 
 mod display;
 mod input;
@@ -38,7 +38,10 @@ fn main() {
 
     let mut curr_state = State::new();
 
-    let mut rom = File::open("roms/IBMLogo.ch8").expect("Should have been able to read the file");;
+    let args: Vec<String> = env::args().collect();
+    let file_path = &args[1];
+
+    let mut rom = File::open(file_path).expect("Should have been able to read the file");;
     let mut buffer: Vec<u8> = Vec::new();
     rom.read_to_end(&mut buffer).unwrap();
 

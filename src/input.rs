@@ -36,7 +36,7 @@ pub fn get_key(curr_state: &mut State)->retCodes{
     // let key_press = [false;16];
     for event in event_pump.poll_iter() {
             match event {
-                Event::Quit {..} => {
+                Event::Quit {..} | Event::KeyDown{keycode: Some(Keycode::Escape), ..} => {
                     return retCodes::Quit
                 },
                 Event::KeyDown{keycode: Some(key), ..} => {

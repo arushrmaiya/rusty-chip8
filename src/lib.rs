@@ -207,7 +207,7 @@ fn execute(&mut self, instr: u16){
             },
 
             (5, _, _, _) => {
-                let jump_addr: u16 = self.pc + 4; 
+                let jump_addr: u16 = self.pc + 2; 
                 let reg1 = digit2 as usize;
                 let reg2: usize = digit3 as usize;
                 println!("SE V{:X}, V{:X}", reg1, reg2);
@@ -236,7 +236,7 @@ fn execute(&mut self, instr: u16){
             },
 
             (9, _, _, _) => {
-                let jump_addr: u16 = self.pc + 4; 
+                let jump_addr: u16 = self.pc + 2; 
                 let reg1 = digit2 as usize;
                 let reg2: usize = digit3 as usize;
                 println!("SNE V{:X}, V{:X}", reg1, reg2);
@@ -301,7 +301,8 @@ fn execute(&mut self, instr: u16){
             (0xE, _, 9, 0xE) => {
                 let key = digit2 as usize;
                 println!("SKP V{:X}", key);
-                if self.keypad[key] {
+                println!("{:?} {}", self.keypad, self.registers[key]);
+                if self.keypad[self.registers[key] as usize] {
                     self.pc += 2;
                 }
             },
